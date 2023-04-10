@@ -15,6 +15,16 @@ def is_collision(point, inflated_obstacles):
             return True
     return False
 
+def line_intersects_obstacle(p1, p2, obstacle):
+    t = 0.0
+    step = 0.01
+    while t <= 1.0:
+        point = p1 + t * (p2 - p1)
+        if (obstacle[0] <= point[0] <= obstacle[3]) and (obstacle[1] <= point[1] <= obstacle[4]) and (obstacle[2] <= point[2] <= obstacle[5]):
+            return True
+        t += step
+    return False
+
 def get_neighbors(point, inflated_obstacles, bounds, step_size=0.5):
     neighbors = []
     for dx in [-step_size, 0, step_size]:
@@ -24,7 +34,13 @@ def get_neighbors(point, inflated_obstacles, bounds, step_size=0.5):
                     continue
                 neighbor = point + np.array([dx, dy, dz])
                 if (bounds[0] <= neighbor[0] <= bounds[3]) and (bounds[1] <= neighbor[1] <= bounds[4]) and (bounds[2] <= neighbor[2] <= bounds[5]) and not is_collision(neighbor, inflated_obstacles):
-                    neighbors.append(neighbor)
+                    collision_free = True
+                    for obstacle in inflated_obstacles:
+                        if line_intersects_obstacle(point, neighbor, obstacle):
+                            collision_free = False
+                            break
+                    if collision_free:
+                        neighbors.append(neighbor)
     return neighbors
 
 def a_star(start, goal, obstacles, bounds, drone_size):

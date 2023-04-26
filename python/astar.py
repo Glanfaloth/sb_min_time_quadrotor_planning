@@ -110,20 +110,81 @@ def plot_path(obstacles, start, goal, path):
     mlab.show()
 
 
+def get_neighbors_2d(point, inflated_obstacles, bounds, step_size=0.5):
+    neighbors = []
+    for dx in [-step_size, 0, step_size]:
+        for dy in [-step_size, 0, step_size]:
+            if dx == 0 and dy == 0:
+                continue
+            neighbor = point + np.array([dx, dy, 0])
+            if (bounds[0] <= neighbor[0] <= bounds[3]) and (bounds[1] <= neighbor[1] <= bounds[4]) and not is_collision(neighbor, inflated_obstacles):
+                collision_free = True
+                for obstacle in inflated_obstacles:
+                    if line_intersects_obstacle(point, neighbor, obstacle):
+                        collision_free = False
+                        break
+                if collision_free:
+                    neighbors.append(neighbor)
+    return neighbors
+
+def a_star_modified(start, goal, obstacles, bounds, drone_size):
+    start = np.round(start).astype(int)
+    goal = np.round(goal).astype(int)
+    start_key = tuple(start)
+    goal_key = tuple(goal)
+    inflated_obstacles = obstacles + np.array([-drone_size, -drone_size, -drone_size, drone_size, drone_size, drone_size])
+
+    # 2D search first
+    came_from = {}
+    g_score = {start_key: 0}
+    f_score = {start_key: heuristic(start, goal)}
+    open_set = [(f_score[start_key], start_key)]
+
+    def search(get_neighbors_func):
+        while open_set:
+            _, current_key = heapq.heappop(open_set)
+            current = np.array(current_key)
+            if np.array_equal(current, goal):
+                path = [current]
+                while current_key in came_from:
+                    current = came_from[current_key]
+                    current_key = tuple(current)
+                    path.append(current)
+                return path[::-1]
+
+            for neighbor in get_neighbors_func(current, inflated_obstacles, bounds):
+                neighbor_key = tuple(neighbor)
+                tentative_g_score = g_score[current_key] + np.linalg.norm(neighbor - current)
+                if neighbor_key not in g_score or tentative_g_score < g_score[neighbor_key]:
+                    came_from[neighbor_key] = current
+                    g_score[neighbor_key] = tentative_g_score
+                    f_score[neighbor_key] = tentative_g_score + heuristic(neighbor, goal)
+                    heapq.heappush(open_set, (f_score[neighbor_key], neighbor_key))
+
+        return []
+
+    path = search(get_neighbors_2d)
+    if not path:
+        # No path found in 2D, try full 3D search
+        open_set = [(f_score[start_key], start_key)]
+        path = search(get_neighbors)
+
+    return path
+
 if __name__ == '__main__':
     obstacles = np.loadtxt("obstacles.txt")
 
-    start = np.array([1, -2, 0])
-    goal = np.array([-1, 2, 0])
+    start = np.array([-1.0, -1.2, 0])
+    goal = np.array([6.8, 3.3, 0])
     bounds = np.array([min(obstacles[:, 0])-1, min(obstacles[:, 1])-1, min(obstacles[:, 2])-1, max(obstacles[:, 3])+1, max(obstacles[:, 4])+1, max(obstacles[:, 5])])
     drone_size = 0.01
 
-    path = a_star(start, goal, obstacles, bounds, drone_size)
+    path = a_star_modified(start, goal, obstacles, bounds, drone_size)
 
     if path:
         print("Waypoints:")
-        for waypoint in path:
-            print(waypoint)
+        formatted_path = [list(waypoint) for waypoint in path]
+        print(formatted_path)
     else:
         print("No path found.")
 

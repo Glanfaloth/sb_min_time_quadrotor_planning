@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mayavi import mlab
 from tvtk.api import tvtk
+import time
 
 def heuristic(point, goal):
     return np.linalg.norm(point - goal)
@@ -78,6 +79,7 @@ def a_star(start, goal, obstacles, bounds, drone_size):
 
 def plot_path(obstacles, start, goal, path):
     fig = mlab.figure(bgcolor=(1, 1, 1))
+    fig.scene.disable_render = True
 
     for obstacle in obstacles:
         x = [obstacle[0], obstacle[3]]
@@ -104,10 +106,12 @@ def plot_path(obstacles, start, goal, path):
                 tube_radius=0.025,
             )
 
-    mlab.points3d(start[0], start[1], start[2], color=(0, 0, 1), scale_factor=0.1)
-    mlab.points3d(goal[0], goal[1], goal[2], color=(1, 1, 0), scale_factor=0.1)
+    mlab.points3d(start[0], start[1], start[2], color=(0, 0, 1), scale_factor=0.1, figure=fig)
+    mlab.points3d(goal[0], goal[1], goal[2], color=(1, 1, 0), scale_factor=0.1, figure=fig)
 
-    mlab.show()
+    fig.scene.disable_render = False
+    # mlab.show()
+    mlab.savefig(f"images/image.png")
 
 
 def get_neighbors_2d(point, inflated_obstacles, bounds, step_size=0.5):
@@ -172,19 +176,24 @@ def a_star_modified(start, goal, obstacles, bounds, drone_size):
     return path
 
 if __name__ == '__main__':
-    obstacles = np.loadtxt("obstacles.txt")
+    obstacles = np.loadtxt("obstacles_N3OpenArea.txt")
 
-    start = np.array([-1.0, -1.2, 0])
-    goal = np.array([6.8, 3.3, 0])
+    start = np.array([1.5, -2, 0])
+    goal = np.array([0.5, 2, 0])
     bounds = np.array([min(obstacles[:, 0])-1, min(obstacles[:, 1])-1, min(obstacles[:, 2])-1, max(obstacles[:, 3])+1, max(obstacles[:, 4])+1, max(obstacles[:, 5])])
     drone_size = 0.01
 
-    path = a_star_modified(start, goal, obstacles, bounds, drone_size)
+    start_time = time.perf_counter()
+    path = a_star(start, goal, obstacles, bounds, drone_size)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Time spent executing the script: {elapsed_time} seconds")
 
     if path:
         print("Waypoints:")
         formatted_path = [list(waypoint) for waypoint in path]
         print(formatted_path)
+        print(len(formatted_path))
     else:
         print("No path found.")
 
